@@ -49,7 +49,7 @@ Every chess move in Standard Algebraic Notation can be expressed with these 29 c
 | **Tokens** | 9.19 Billion |
 | **Train split** | 95% (~8.73B tokens) |
 | **Val split** | 5% (~460M tokens) |
-| **Chinchilla ratio** | 3.7× optimal for 85M model |
+| **Chinchilla ratio** | 5.4× optimal for 85M model |
 
 ---
 
@@ -61,11 +61,11 @@ Every chess move in Standard Algebraic Notation can be expressed with these 29 c
 | **Learning Rate** | 6e-4 (cosine decay) |
 | **Warmup Steps** | 2,000 |
 | **Total Iterations** | 600,000 |
-| **Batch Size** | 8 (× 8 gradient accumulation = 64 effective) |
+| **Batch Size** | 16 (× 4 gradient accumulation = 64 effective) |
 | **Tokens/Iteration** | 32,768 |
 | **Weight Decay** | 0.1 |
 | **Dropout** | 0.1 |
-| **Precision** | bfloat16 |
+| **Precision** | float16 (T4) / bfloat16 (A100+) |
 | **Target Hardware** | Google Colab T4 (16GB) |
 
 ---
@@ -131,7 +131,7 @@ Based on comparable research:
 |--------|---------|
 | **ELO** | ~1500–1800 |
 | **Legal Move Rate** | >99% |
-| **Training Time** | ~65–90 hrs (T4 GPU) |
+| **Training Time** | ~166–250 hrs (T4 GPU, float16+compile) |
 
 ---
 

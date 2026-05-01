@@ -74,7 +74,7 @@ Character-level tokenization. Typical chess PGN vocabulary:
 | ` ` | Space between moves |
 | `\n` | Game separator |
 
-**Vocabulary size: ~30-32 characters**
+**Vocabulary size: 29 characters (exact)**
 
 ## PGN Cleaning Process
 
