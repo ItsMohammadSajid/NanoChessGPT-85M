@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Dataset files (too large for git — generate locally)
+data/chess/raw_zips/
+data/chess/train.bin
+data/chess/val.bin
+data/chess/meta.pkl
+data/chess/full_prepare.log
+
+# Model checkpoints (too large for git)
+out-chess-gpt2small/
+*.pt
+*.ckpt
+
+# Logs
+*.log
+nohup.out
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment
+.env
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
