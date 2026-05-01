@@ -329,7 +329,7 @@ while True:
     local_iter_num += 1
 
     # termination conditions
-    if iter_num > max_iters:
+    if iter_num >= max_iters:
         break
 
 if ddp:

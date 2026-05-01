@@ -5,8 +5,14 @@ import os
 import pickle
 from contextlib import nullcontext
 import torch
-import tiktoken
 from model import GPTConfig, GPT
+
+# tiktoken is only needed if meta.pkl is not available (e.g. for raw GPT-2 weights)
+# For chess model, meta.pkl is always present, so tiktoken is never used.
+try:
+    import tiktoken
+except ImportError:
+    tiktoken = None
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')

@@ -11,8 +11,8 @@
 # To resume after disconnect:
 #   python train.py config/train_chess_gpt2small.py --init_from=resume
 #
-# Estimated time (T4 GPU, 8B tokens):
-#   ~65-90 hours (resume across multiple sessions)
+# Estimated time (T4 GPU, float16 + compile=True):
+#   ~1.0-1.5 sec/iter → 600K iters ≈ 166-250 hours (14-21 Colab sessions)
 # ================================================================
 
 # ── Output ──────────────────────────────────────────────────────
@@ -87,8 +87,10 @@ min_lr = 6e-5                # Min LR = learning_rate / 10
 # ── Hardware ─────────────────────────────────────────────────────
 device = 'cuda'              # 'cuda' for GPU, 'cpu' for testing
 
-# bfloat16 is more stable than float16 (no NaN explosions).
-# T4 supports bfloat16. Use it.
+# NOTE: T4 (Turing/sm_75) does NOT have bfloat16 Tensor Cores → slow!
+# The Colab notebook auto-detects GPU and overrides to float16 on T4.
+# A100/H100 (sm_80+) can use bfloat16 natively.
+# Default here is bfloat16 for A100 compatibility; T4 notebook overrides it.
 dtype = 'bfloat16'
 
 # torch.compile() speeds up training ~20-30% via kernel fusion.
@@ -102,20 +104,23 @@ compile = True               # Enabled: ~20-30% faster training
 #
 # Tokens per iteration:
 #   batch_size × gradient_accumulation_steps × block_size
-#   = 8 × 8 × 512 = 32,768 tokens/iter
+#   = 16 × 4 × 512 = 32,768 tokens/iter
 #
-# Time to see all 8B tokens once (1 epoch):
-#   8B / 32,768 = ~244,000 iterations
+# Time to see all 8.73B tokens once (1 epoch):
+#   8.73B / 32,768 = ~266,000 iterations
 #
-# Total iters = 600,000 → model sees data ~2.4 times (good!)
+# Total iters = 600,000 → model sees data ~2.25 times (good!)
 #
-# Chinchilla optimal for GPT-2 Small:
-#   124M × 20 = 2.48B tokens
-#   You have 8B tokens → 3.2× more than optimal ✅
+# Chinchilla optimal for our model (85M params):
+#   85M × 20 = 1.7B tokens (optimal)
+#   We have 8.73B tokens → 5.1× more than optimal ✅
 #
-# VRAM usage estimate (batch=8, block=512, 85M params):
-#   Static (weights+optimizer): 85M × 16 bytes = ~1.4 GB
-#   Activations (batch=8, seq=512, 12 layers): ~2-4 GB
+# VRAM usage estimate (batch=16, block=512, 85M params, float16):
+#   Static (weights+optimizer states): ~1.3 GB
+#   Activations (batch=16, seq=512, 12 layers): ~3-5 GB
 #   Total: ~4-6 GB → safely fits in T4's 16GB ✅
 #
+# Speed (float16 + compile=True on T4):
+#   Estimated: ~1.0-1.5 sec/iter
+#   Per 12hr Colab session: ~29,000-43,000 iters
 # ================================================================
