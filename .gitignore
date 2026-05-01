@@ -24,7 +24,6 @@ nohup.out
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
 # Environment
 .env
