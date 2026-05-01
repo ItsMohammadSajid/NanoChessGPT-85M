@@ -34,10 +34,11 @@ wandb_run_name = 'chess-gpt2small'
 dataset = 'chess'            # → reads from data/chess/train.bin + val.bin
 
 # Gradient accumulation: effective batch = batch_size × grad_accum
-# T4 has 16GB VRAM. batch_size=8, block_size=512 is safe.
-# effective batch = 8 × 8 = 64 sequences per update
-batch_size = 8               # Micro-batch size (safe for T4 with 100M model)
-gradient_accumulation_steps = 8   # Simulate larger batch without OOM
+# T4 has 16GB VRAM. batch_size=16, block_size=512 is safe.
+# effective batch = 16 × 4 = 64 sequences per update (same as before)
+# batch=16 + grad_accum=4 → less Python loop overhead vs batch=8 + grad_accum=8
+batch_size = 16              # Micro-batch (T4 16GB VRAM safely handles this)
+gradient_accumulation_steps = 4   # 4 micro-steps → effective batch = 64
 
 # ── Context Window ──────────────────────────────────────────────
 # GPT-2 Small original: 1024
@@ -90,10 +91,10 @@ device = 'cuda'              # 'cuda' for GPU, 'cpu' for testing
 # T4 supports bfloat16. Use it.
 dtype = 'bfloat16'
 
-# torch.compile() can speed up training ~20-30%.
-# On T4 with older PyTorch it can be unstable.
-# Set True if your PyTorch >= 2.0 and no errors appear.
-compile = False              # Start with False, set True if stable
+# torch.compile() speeds up training ~20-30% via kernel fusion.
+# Requires PyTorch >= 2.0. Safe on Colab T4 (PyTorch 2.x).
+# First iter will be slow (~1 min compilation) — that is normal.
+compile = True               # Enabled: ~20-30% faster training
 
 # ================================================================
 # QUICK REFERENCE — Important Numbers
