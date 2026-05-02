@@ -22,7 +22,7 @@ out_dir = 'out-chess-gpt2small'
 # eval_interval: checkpoint save frequency
 # eval_iters: how many batches to estimate loss (fewer = faster eval, slightly less accurate)
 # 100 iters × 1.2s = 120s training + eval_iters=20 × 2 × 0.1s = 4s eval = 3.2% overhead ✅
-eval_interval = 100           # Checkpoint every ~2 min (was 500 = ~10 min)
+eval_interval = 250           # Checkpoint every ~250 iters
 eval_iters = 20               # 20 batches × 2 splits = fast eval, ±0.022 accuracy
 log_interval = 25             # Print loss every 25 steps
 always_save_checkpoint = True # Save checkpoint at every eval

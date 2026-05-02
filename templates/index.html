@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NanoChessGPT GUI</title>
+    <!-- jQuery is required by chessboard.js -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Chessboard.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <!-- Chessboard.js JS -->
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    
+    <!-- Chess.js (for logic and move validation) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #161512;
+            --text-color: #C3C3C0;
+            --board-bg: #262421;
+            --accent-color: #81b64c;
+            --accent-hover: #8fc257;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        p {
+            color: #8b8985;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+        #myBoard {
+            width: 400px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 4px solid var(--board-bg);
+            border-radius: 4px;
+        }
+        .controls {
+            background-color: var(--board-bg);
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        button, select {
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: background-color 0.2s;
+            box-sizing: border-box;
+        }
+        select {
+            background-color: #3e3d3a;
+        }
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            color: #888;
+        }
+        #status {
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        #pgn {
+            background-color: #1e1d1a;
+            padding: 10px;
+            border-radius: 4px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            color: #a8a6a1;
+            word-wrap: break-word;
+            margin-bottom: 10px;
+        }
+        .error-msg {
+            color: #ff5555;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+        .spinner {
+            display: none;
+            margin: 10px auto;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border-left-color: var(--accent-color);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Highlight squares */
+        .highlight-white {
+            background-color: #f6f669 !important;
+        }
+        .highlight-black {
+            background-color: #baca44 !important;
+        }
+        .highlight-move-white {
+            background-color: #cdd26a !important;
+        }
+        .highlight-move-black {
+            background-color: #aaa23a !important;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>NanoChessGPT</h1>
+    <p>Play against your 85M GPT-2 Model</p>
+
+    <div class="container">
+        <!-- Chess Board -->
+        <div id="myBoard"></div>
+
+        <!-- Controls & Info -->
+        <div class="controls">
+            <select id="playerColor">
+                <option value="w">Play as White</option>
+                <option value="b">Play as Black</option>
+            </select>
+            
+            <button id="resetBtn">Restart Game</button>
+
+            <div id="status">White to move</div>
+            <div id="pgn"></div>
+            
+            <div class="spinner" id="spinner"></div>
+            <div id="error-msg" class="error-msg"></div>
+        </div>
+    </div>
+
+    <script>
+        var board = null;
+        var game = new Chess();
+        var $status = $('#status');
+        var $pgn = $('#pgn');
+        var $errorMsg = $('#error-msg');
+        var $spinner = $('#spinner');
+        var $playerColor = $('#playerColor');
+
+        var modelIsThinking = false;
+        var userColor = 'w'; // 'w' or 'b'
+        var selectedSquare = null;
+
+        // --- Highlighting Logic ---
+        function removeHighlights() {
+            $('#myBoard .square-55d63').css('background', '');
+        }
+
+        function highlightSquare(square, type) {
+            var $square = $('#myBoard .square-' + square);
+            var isBlack = $square.hasClass('black-3c85d');
+            
+            var color = '';
+            if (type === 'select') {
+                color = isBlack ? '#baca44' : '#f6f669';
+            } else if (type === 'move') {
+                color = isBlack ? '#aaa23a' : '#cdd26a';
+            }
+            $square.css('background', color);
+        }
+
+        // --- Click-to-Move Logic ---
+        $('#myBoard').on('mousedown', '.square-55d63, .piece-417db', function(e) {
+            if (game.game_over() || modelIsThinking || game.turn() !== userColor) return;
+
+            var $squareEl = $(this).closest('.square-55d63');
+            var square = $squareEl.attr('data-square');
+            
+            // If already a square selected, try to move there
+            if (selectedSquare !== null) {
+                // Determine if it's a valid move
+                var moves = game.moves({ square: selectedSquare, verbose: true });
+                var isValidMove = false;
+                for (var i = 0; i < moves.length; i++) {
+                    if (moves[i].to === square) {
+                        isValidMove = true;
+                        break;
+                    }
+                }
+
+                if (isValidMove) {
+                    var move = game.move({
+                        from: selectedSquare,
+                        to: square,
+                        promotion: 'q'
+                    });
+
+                    if (move !== null) {
+                        board.position(game.fen());
+                        selectedSquare = null;
+                        removeHighlights();
+                        updateStatus();
+                        askModelForMove();
+                        return;
+                    }
+                }
+            }
+
+            // Clicked on a square (either no previous selection, or invalid move target)
+            removeHighlights();
+            
+            // If the clicked square has our own piece, select it and show legal moves
+            var piece = game.get(square);
+            if (piece && piece.color === userColor) {
+                selectedSquare = square;
+                highlightSquare(square, 'select');
+
+                var moves = game.moves({ square: square, verbose: true });
+                for (var i = 0; i < moves.length; i++) {
+                    highlightSquare(moves[i].to, 'move');
+                }
+            } else {
+                selectedSquare = null;
+            }
+        });
+
+        // --- Drag and Drop Logic (Still supported) ---
+        function onDragStart(source, piece, position, orientation) {
+            if (game.game_over()) return false;
+            if (game.turn() !== userColor) return false;
+            if (piece.charAt(0) !== userColor) return false;
+            if (modelIsThinking) return false;
+            
+            selectedSquare = null;
+            removeHighlights();
+        }
+
+        function onDrop(source, target) {
+            var move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
+            if (move === null) return 'snapback';
+
+            updateStatus();
+            askModelForMove();
+        }
+
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+
+        // --- Game Logic ---
+        function updateStatus() {
+            var statusHTML = '';
+            var moveColor = 'White';
+            if (game.turn() === 'b') {
+                moveColor = 'Black';
+            }
+
+            if (game.in_checkmate()) {
+                statusHTML = 'Game over, ' + moveColor + ' is in checkmate.';
+            } else if (game.in_draw()) {
+                statusHTML = 'Game over, drawn position';
+            } else {
+                statusHTML = moveColor + ' to move';
+                if (game.in_check()) {
+                    statusHTML += ', ' + moveColor + ' is in check';
+                }
+            }
+
+            $status.html(statusHTML);
+            
+            var history = game.history();
+            var displayHistory = "";
+            for(var i=0; i<history.length; i+=2) {
+                displayHistory += (i/2 + 1) + ". " + history[i] + " ";
+                if(history[i+1]) {
+                    displayHistory += history[i+1] + " ";
+                }
+            }
+            $pgn.html(displayHistory);
+        }
+
+        function getSanHistoryString() {
+            return game.history().join(" ");
+        }
+
+        function askModelForMove() {
+            if (game.game_over()) return;
+
+            modelIsThinking = true;
+            $spinner.show();
+            $errorMsg.hide();
+            $status.html("Model is thinking...");
+
+            var pgnHistory = getSanHistoryString();
+
+            $.ajax({
+                url: '/move',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ history: pgnHistory }),
+                success: function(response) {
+                    modelIsThinking = false;
+                    $spinner.hide();
+
+                    var aiMove = response.move;
+                    var moveObj = game.move(aiMove);
+                    
+                    if (moveObj === null) {
+                        $errorMsg.text("Model generated an illegal move: '" + aiMove + "'. You win!");
+                        $errorMsg.show();
+                        $status.html("Model Resigned (Illegal Move)");
+                    } else {
+                        board.position(game.fen());
+                        removeHighlights();
+                        updateStatus();
+                    }
+                },
+                error: function(err) {
+                    modelIsThinking = false;
+                    $spinner.hide();
+                    var errMsg = err.responseJSON && err.responseJSON.error ? err.responseJSON.error : "Connection error";
+                    $errorMsg.text("Error: " + errMsg);
+                    $errorMsg.show();
+                    updateStatus();
+                }
+            });
+        }
+
+        function resetGame() {
+            game.reset();
+            $errorMsg.hide();
+            modelIsThinking = false;
+            selectedSquare = null;
+            removeHighlights();
+            
+            userColor = $playerColor.val();
+            var orientation = userColor === 'w' ? 'white' : 'black';
+            board.orientation(orientation);
+            board.position('start');
+            
+            updateStatus();
+            
+            // If user is black, AI moves first
+            if (userColor === 'b') {
+                askModelForMove();
+            }
+        }
+
+        $('#resetBtn').on('click', resetGame);
+        $playerColor.on('change', resetGame);
+
+        // Initialize Board
+        var config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            pieceTheme: 'static/img/chesspieces/wikipedia/{piece}.png'
+        };
+        board = Chessboard('myBoard', config);
+        
+        // Initial setup based on dropdown
+        resetGame();
+
+    </script>
+</body>
+</html>
